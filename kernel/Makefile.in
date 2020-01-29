@@ -1,0 +1,32 @@
+MODULE_NAME = ipt_ISG
+
+KVERSION = @KVERSION@
+KDIR = /lib/modules/$(KVERSION)/build
+IPTSRC = @IPTSRC@
+IPTABLES_VERSION = @IPTABLES_VERSION@
+IPTABLES_CFLAGS = @IPTABLES_CFLAGS@
+IPTABLES_MODULES = @IPTABLES_MODULES@
+
+obj-m = $(MODULE_NAME).o
+$(MODULE_NAME)-objs := isg_main.o isg_nehash.o
+
+all:
+	echo "" > build.h
+	printf "/* Compilation date.\n * Written by Makefile (userspace) */\n#define _BUILD_DATE \"%s %s\"\n" `date +'%F %T'` > build.h
+	$(MAKE) -C $(KDIR) M=$(CURDIR) modules
+	gcc -O2 -Wall -Wunused $(IPTABLES_CFLAGS) -fPIC -o libipt_ISG_sh.o -c libipt_ISG.c
+	gcc -shared -o libipt_ISG.so libipt_ISG_sh.o
+	gcc -O2 -Wall -Wunused $(IPTABLES_CFLAGS) -fPIC -o libipt_isg_sh.o -c libipt_isg.c
+	gcc -shared -o libipt_isg.so libipt_isg_sh.o
+kinstall:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) modules_install
+	/sbin/depmod -a
+clean:
+	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
+	rm libipt_ISG.so build.h
+
+iinstall: ipt_ISG.ko libipt_ISG.so
+	cp -a libipt_ISG.so $(IPTABLES_MODULES)
+	cp -a libipt_isg.so $(IPTABLES_MODULES)
+
+install: kinstall iinstall
