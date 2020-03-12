@@ -16,6 +16,11 @@ MODULE_DESCRIPTION("Xtables: Linux ISG Access Control");
 MODULE_ALIAS("ipt_ISG");
 MODULE_ALIAS("ipt_isg");
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
+#define xt_in(par) ((par)->in)
+#define xt_out(par) ((par)->out)
+#endif
+
 static inline struct isg_session *isg_find_session(struct isg_net *, struct isg_in_event *);
 static int isg_start_session(struct isg_session *);
 static void isg_send_sessions_list(struct isg_net *, pid_t, struct isg_in_event *);
@@ -27,7 +32,11 @@ static void isg_send_event(struct isg_net *, u_int16_t, struct isg_session *, pi
 static void isg_send_event_type(struct isg_net *, pid_t, u_int32_t);
 static int isg_add_service_desc(struct isg_net *, u_int8_t *, u_int8_t *);
 static int isg_apply_service(struct isg_net *, struct isg_in_event *);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 static void isg_session_timeout(unsigned long);
+#else
+static void isg_session_timeout(struct timer_list *);
+#endif
 static void isg_sweep_service_desc_tc(struct isg_net *);
 static void isg_send_services_list(struct isg_net *, pid_t, struct isg_in_event *);
 
@@ -446,7 +455,11 @@ static int isg_apply_service(struct isg_net *isg_net, struct isg_in_event *ev) {
 
 		hlist_add_head(&nis->srv_node, &is->srv_head);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 		setup_timer(&nis->timer, isg_session_timeout, (unsigned long)nis);
+#else
+		timer_setup(&nis->timer, isg_session_timeout, 0);
+#endif
 		mod_timer(&nis->timer, jiffies + session_check_interval * HZ);
 
 		ev->si.sinfo.id = nis->info.id;
@@ -495,7 +508,11 @@ static struct isg_session *isg_create_session(struct isg_net *isg_net, u_int32_t
 
 	get_random_bytes(&(is->info.id), sizeof(is->info.id));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 	setup_timer(&is->timer, isg_session_timeout, (unsigned long)is);
+#else
+	timer_setup(&is->timer, isg_session_timeout, 0);
+#endif
 	mod_timer(&is->timer, jiffies + session_check_interval * HZ);
 
 	hlist_add_head(&is->list, &isg_net->hash[get_isg_hash(is->info.ipaddr)]);
@@ -809,8 +826,13 @@ static void isg_update_tokens(struct isg_session *is, u_int64_t now, u_int8_t di
 	}
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 static void isg_session_timeout(unsigned long arg) {
 	struct isg_session *is = (struct isg_session *) arg;
+#else
+static void isg_session_timeout(struct timer_list *arg) {
+	struct isg_session *is = from_timer(is, arg, timer);
+#endif
 	struct timespec ts_now;
 	ktime_get_ts(&ts_now);
 
@@ -896,7 +918,7 @@ isg_mt(const struct sk_buff *skb,
 		return 0;
 	}
 
-	isg_net = isg_pernet(dev_net((par->in != NULL) ? par->in : par->out));
+	isg_net = isg_pernet(dev_net((xt_in(par) != NULL) ? xt_in(par) : xt_out(par)));
 
 	is = isg_lookup_session(isg_net, iph->saddr);
 
@@ -964,7 +986,7 @@ isg_tg(struct sk_buff *skb,
 
 	pkt_len_bits = pkt_len << 3;
 
-	isg_net = isg_pernet(dev_net((par->in != NULL) ? par->in : par->out));
+	isg_net = isg_pernet(dev_net((xt_in(par) != NULL) ? xt_in(par) : xt_out(par)));
 
 	spin_lock_bh(&isg_lock);
 
