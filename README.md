@@ -16,7 +16,7 @@ It is based on a non-original copy of source code recovered from old archive. Pr
 ## Session initiation and shaping
 Use iptables to setup rules in `FORWARD` chain to specify how to init session
 ```bash
-iptables -A FORWARD -s 192.0.0.0/24 -j ISG --init-session
+iptables -A FORWARD -s 192.0.0.0/24 -j ISG --session-init
 iptables -A FORWARD -d 192.0.0.0/24 -j ISG
 ```
 This commands will advise ISG module to initiate session for every IP address from 192.0.0.0/24 network and to policy traffic to 192.0.0.0/24 network in case of active session
