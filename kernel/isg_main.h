@@ -11,6 +11,7 @@
 #include <linux/vmalloc.h>
 #include <net/net_namespace.h>
 #include <net/netns/generic.h>
+#include <linux/list_bl.h>
 
 #include "isg.h"
 #include "kcompat.h"
@@ -20,8 +21,8 @@
 #define INITIAL_MAX_DURATION 60
 #define MAX_SD_CLASSES       16
 
-#define ISG_DIR_IN    0x01
-#define ISG_DIR_OUT   0x02
+#define ISG_DIR_IN    0x00
+#define ISG_DIR_OUT   0x01
 
 /* From Userspace to Kernel */
 #define	EVENT_LISTENER_REG   0x01
@@ -70,6 +71,14 @@
 #define IS_SESSION_APPROVED(is)			\
 			(is->info.flags & ISG_IS_APPROVED)
 
+#define IS_SESSION_DYING(is) \
+			(is->info.flags & ISG_IS_DYING)
+
+struct isg_session_rate {
+	u_int32_t rate;			/* Policing (rate/burst) info (kbit/s) */
+	u_int32_t burst;
+};
+
 struct isg_session_info {
 	u_int64_t id;
 	u_int8_t cookie[32];
@@ -85,13 +94,10 @@ struct isg_session_info {
 	u_int32_t idle_timeout;
 	u_int32_t max_duration;
 
-	u_int32_t in_rate;			/* Policing (rate/burst) info (kbit/s) */
-	u_int32_t in_burst;
-	u_int32_t out_rate;
-	u_int32_t out_burst;
+	struct isg_session_rate rate[2];			/* Policing (rate/burst) info (kbit/s) */
 };
 
-struct isg_session_stat {
+struct isg_ev_session_stat {
 	u_int32_t duration;		/* Session duration (seconds) */
 	u_int32_t padding;		/* For in_packets field proper alignment on 64-bit systems */
 
@@ -101,22 +107,25 @@ struct isg_session_stat {
 	u_int64_t out_bytes;
 };
 
+struct isg_session_stat {
+	u_int64_t packets;	/* Statistics for session traffic */
+	u_int64_t bytes;
+	u_int64_t tokens;
+	u_int64_t last_seen;
+};
+
 struct isg_session {
-	struct isg_session_info info;
-	struct isg_session_stat stat;
+	struct isg_session_stat stat[2]; /* replace with array for every direction */
 
-	u_int64_t in_tokens;
-	u_int64_t out_tokens;
-
-	u_int64_t in_last_seen;
-	u_int64_t out_last_seen;
-
+	spinlock_t lock;
 	time_t start_ktime;
 	time_t last_export;
 
 	struct timer_list timer;
 
-	struct hlist_node list;			/* Main list of sessions (isg_hash) */
+	struct isg_session_info info;
+	unsigned int hash_key;
+	struct hlist_bl_node list;			/* Main list of sessions (isg_hash) */
 	struct isg_service_desc *sdesc;	/* Service description for this sub-session */
 	struct isg_session *parent_is;	/* Parent session (only for sub-sessions/services) */
 
@@ -154,7 +163,7 @@ struct isg_in_event {
 struct isg_out_event {
 	u_int32_t type;
 	struct isg_session_info sinfo;
-	struct isg_session_stat sstat;
+	struct isg_ev_session_stat sstat;
 	u_int64_t parent_session_id;	/* Parent session-ID (only for sub-sessions/services) */
 	u_int8_t service_name[32];		/* Service name (only for sub-sessions/services) */
 } __attribute__ ((packed));
@@ -179,8 +188,14 @@ struct isg_service_desc {
 	struct traffic_class *tcs[MAX_SD_CLASSES];
 };
 
+struct isg_net_stat {
+	atomic_t approved;
+	atomic_t unapproved;
+	atomic_t dying;
+};
+
 struct isg_net {
-	struct hlist_head *hash;
+	struct hlist_bl_head *hash;
 
 	struct hlist_head *nehash;
 	struct hlist_head nehash_queue;
@@ -188,17 +203,20 @@ struct isg_net {
 	struct hlist_head services;
 
 	struct sock *sknl;
-	struct sk_buff *sskb;
 	pid_t listener_pid;
 
 	unsigned long *port_bitmap;
 
 	struct ctl_table_header *sysctl_hdr;
 
+	struct isg_net_stat cnt;
+
 	unsigned int approve_retry_interval;
 	unsigned int tg_permit_action;
 	unsigned int tg_deny_action;
 	unsigned int pass_outgoing;
+	rwlock_t nehash_rw_lock;
+	rwlock_t services_rw_lock;
 };
 
 extern unsigned int nehash_key_len;
