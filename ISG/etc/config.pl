@@ -33,7 +33,10 @@ $cfg{session_max_duration} = 86400;
 $cfg{unauth_session_max_duration} = 60;
 
 ### This services will be automatically applied if session was rejected by RADIUS
-#$cfg{unauth_service_name_list} = [ "ATESTSERV", "AREDIRECT" ];
+#$cfg{unauth_service_name_list} = [ "AREDIR" ];
+#$cfg{srv}{REDIR}{type} = "tagger";
+#$cfg{srv}{REDIR}{traffic_classes} = [ "ALL_OTHER" ];
+
 
 ### Check traffic classification file MD5 sum every N seconds. If sum was changed re-read this file.
 $cfg{tc_check_interval} = 300; ## Every 5 minutes
