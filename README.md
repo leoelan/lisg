@@ -23,7 +23,7 @@ This commands will advise ISG module to initiate session for every IP address fr
 
 ## Redirect to authorization
 ```bash
-iptables -t nat -A PREROUTING -p tcp -m tcp --dport 80 -m isg --service-name REDIRECT --j DNAT --to 192.0.0.1
+-A PREROUTING -m isg --service-name REDIR -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 192.168.0.1
 ```
 This command will make DNAT for every HTTP packet that found in ISG with service REDIRECT. Possible usage to redirect to authorization web-site.
 
