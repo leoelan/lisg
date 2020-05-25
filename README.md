@@ -11,6 +11,19 @@ It is based on a non-original copy of source code recovered from old archive. Pr
 * The code is really full of global spinlocks and currently do not scale well on multi-CPU servers. I will try to rewrite it with a new lockless techniques in future.
 * A userspace daemon should be rewritten because perl is not fast enought in case of creating lots of new sessions per second.
 * IPv6 support is fully absent. I think that shoud be fixed.
+# INSTALL
+```bash
+cd /opt
+git clone https://github.com/junjunk/lisg.git
+
+apt install -y linux-headers-$(uname -r) iptables-dev build-essential or apt-get -y install linux-headers-$(uname -r) iptables-dev build-essential
+cpan -i Net::Radius::Packet
+
+chmod 777 /opt/lisg/kernel/configure && /opt/lisg/kernel/configure && make clean && make && make install
+modprobe ipt_ISG
+echo ipt_ISG >> /etc/modules
+
+```
 
 # Usage
 ## Session initiation and shaping
