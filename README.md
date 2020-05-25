@@ -17,7 +17,7 @@ cd /opt
 git clone https://github.com/junjunk/lisg.git
 
 apt install -y linux-headers-$(uname -r) iptables-dev build-essential or apt-get -y install linux-headers-$(uname -r) iptables-dev build-essential
-cpan -i Net::Radius::Packet
+cpan install Net::Radius::Packet
 
 chmod 777 /opt/lisg/kernel/configure && /opt/lisg/kernel/configure && make clean && make && make install
 modprobe ipt_ISG
