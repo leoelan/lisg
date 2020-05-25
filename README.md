@@ -23,9 +23,13 @@ This commands will advise ISG module to initiate session for every IP address fr
 
 ## Redirect to authorization
 uncomment on the config.pl
+
 #$cfg{unauth_service_name_list} = [ "AREDIR" ];
+
 #$cfg{srv}{REDIR}{type} = "tagger";
+
 #$cfg{srv}{REDIR}{traffic_classes} = [ "ALL_OTHER" ];
+
 ```bash
 -A PREROUTING -m isg --service-name REDIR -p tcp -m multiport --dports 80,443 -j DNAT --to-destination 192.168.0.1
 ```
