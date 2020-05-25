@@ -16,7 +16,10 @@ It is based on a non-original copy of source code recovered from old archive. Pr
 cd /opt
 git clone https://github.com/junjunk/lisg.git
 
-apt install -y linux-headers-$(uname -r) iptables-dev build-essential or apt-get -y install linux-headers-$(uname -r) iptables-dev build-essential
+apt install -y linux-headers-$(uname -r) iptables-dev build-essential
+OR
+apt-get -y install linux-headers-$(uname -r) iptables-dev build-essential
+
 cpan install Net::Radius::Packet
 
 chmod 777 /opt/lisg/kernel/configure && /opt/lisg/kernel/configure && make clean && make && make install
