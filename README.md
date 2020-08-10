@@ -26,6 +26,9 @@ chmod 777 /opt/lisg/kernel/configure && /opt/lisg/kernel/configure && make clean
 modprobe ipt_ISG
 echo ipt_ISG >> /etc/modules
 
+traffic is not dropping during the authorization of freeradius:
+modprobe ipt_ISG tg_deny_action=1
+
 ```
 
 # Usage
